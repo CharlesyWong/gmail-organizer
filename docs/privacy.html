@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Gmail Organizer</title>
+  <meta name="description" content="Privacy policy for Gmail Organizer, a local Gmail metadata automation tool.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <path d="m3 7 9 6 9-6"></path>
+          </svg>
+        </span>
+        Gmail Organizer
+      </a>
+      <nav aria-label="Primary">
+        <a href="https://github.com/CharlesyWong/gmail-organizer">GitHub</a>
+        <a href="privacy.html" aria-current="page">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap prose">
+    <p class="eyebrow">Gmail Organizer</p>
+    <h1>Privacy Policy</h1>
+    <p class="muted">Effective 23 October 2026</p>
+
+    <p>
+      Gmail Organizer is a local, open-source tool. This policy explains what it
+      accesses, where data stays, and how to delete it.
+    </p>
+
+    <h2>What the app accesses</h2>
+    <ul>
+      <li>Gmail message metadata: message ID, thread ID, sender, subject, date, label IDs, and internal date.</li>
+      <li>Gmail labels needed to reuse or create <code>Auto/&lt;Category&gt;</code> labels.</li>
+    </ul>
+    <p>
+      It does <strong>not</strong> download message bodies, attachments, contacts,
+      calendar data, or other Google data.
+    </p>
+
+    <h2>Why it accesses data</h2>
+    <p>
+      To classify messages using rules you configure and to add labels so your
+      inbox is easier to triage.
+    </p>
+
+    <h2>Where data is processed and stored</h2>
+    <ul>
+      <li>All processing happens locally on the device where you run the tool.</li>
+      <li>The OAuth token is stored locally in <code>.secrets/token.json</code>.</li>
+      <li>The incremental watermark and run summary are stored in <code>data/state.json</code>.</li>
+      <li>Logs are stored in <code>logs/</code>. Default INFO logs do not include sender or subject; DEBUG logs (<code>--verbose</code>) may include sender and subject and remain local.</li>
+      <li>The tool does not send Gmail data to the project owner or any server.</li>
+    </ul>
+
+    <h2>Sharing and use</h2>
+    <p>
+      No sale, sharing, or transfer of Google user data to third parties. Google
+      user data is used only to provide the labeling functionality you request.
+      It is not used for advertising, and it is not used to train or improve
+      generalized AI or machine learning models. This website is static and uses
+      no advertising, analytics, or tracking.
+    </p>
+
+    <h2>Google API Limited Use</h2>
+    <p>
+      Gmail Organizer's use and transfer to any other app of information received
+      from Google APIs will adhere to the
+      <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+      including the Limited Use requirements.
+    </p>
+
+    <h2>Retention and deletion</h2>
+    <ul>
+      <li>Revoke the app's access at <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.</li>
+      <li>Delete <code>.secrets/token.json</code>, <code>data/state.json</code>, and <code>logs/</code> from your machine.</li>
+      <li>Remove any <code>Auto/*</code> labels you no longer want in Gmail.</li>
+    </ul>
+    <p>
+      Deleting local files removes stored credentials and state; it does not
+      remove labels already applied in Gmail.
+    </p>
+
+    <h2>Security</h2>
+    <p>
+      Tokens are kept local and excluded from git. The tool requests
+      <code>gmail.modify</code>, the narrowest scope used for metadata reads and
+      label application. Do not run the tool on a shared or untrusted machine.
+    </p>
+
+    <h2>Changes</h2>
+    <p>Material changes will be reflected on this page with a new effective date.</p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions or data requests: open an issue at
+      <a href="https://github.com/CharlesyWong/gmail-organizer/issues">github.com/CharlesyWong/gmail-organizer/issues</a>.
+      For security reports, use the repository's private security advisory flow.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>Gmail Organizer is an independent open-source project, not affiliated with Google. Gmail is a trademark of Google LLC.</p>
+      <p>
+        <a href="./">Home</a> ·
+        <a href="terms.html">Terms</a> ·
+        <a href="https://github.com/CharlesyWong/gmail-organizer">Source</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

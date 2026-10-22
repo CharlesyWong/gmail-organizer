@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gmail Organizer — rule-based Gmail automation</title>
+  <meta name="description" content="A local, rule-based Gmail automation that reads metadata and applies labels, with dry-run by default.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <path d="m3 7 9 6 9-6"></path>
+          </svg>
+        </span>
+        Gmail Organizer
+      </a>
+      <nav aria-label="Primary">
+        <a href="https://github.com/CharlesyWong/gmail-organizer">GitHub</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <p class="eyebrow">Open source · local-first · MIT</p>
+      <h1>A calmer Gmail inbox, one rule at a time.</h1>
+      <p class="lede">
+        Gmail Organizer reads message metadata, applies your ordered rules, and
+        adds <code>Auto/&lt;Category&gt;</code> labels. It never downloads message
+        bodies, never deletes mail, and never writes to Gmail unless you pass
+        <code>--apply</code>.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/CharlesyWong/gmail-organizer">View on GitHub</a>
+        <a class="button" href="https://github.com/CharlesyWong/gmail-organizer/blob/main/docs/demo.md">See the demo</a>
+      </div>
+      <pre class="terminal"><code>$ python -m gmail_organizer run --limit 20
+DRY RUN - no Gmail changes were made.
+would apply: 10
+mode: bootstrap
+fetched: 20 | classified: 10 | unmatched: 10
+labels applied: 0 | labels created: 0
+failed: 0</code></pre>
+    </section>
+
+    <section class="wrap">
+      <h2>Built around a safety model</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Metadata only</h3>
+          <p>From, Subject, Date, labels, and internal date. No bodies, attachments, or contacts.</p>
+        </article>
+        <article class="card">
+          <h3>Dry-run default</h3>
+          <p>See exactly what would change. Gmail writes require an explicit <code>--apply</code>.</p>
+        </article>
+        <article class="card">
+          <h3>Add-only labels</h3>
+          <p>The only mutation is adding a label. Nothing is archived, deleted, or marked read.</p>
+        </article>
+        <article class="card">
+          <h3>Incremental</h3>
+          <p>A local watermark keeps daily runs small, with a one-hour overlap and idempotent checks.</p>
+        </article>
+        <article class="card">
+          <h3>Tested offline</h3>
+          <p>149 tests and 94% coverage against an in-memory Gmail client; CI runs on Ubuntu and Windows.</p>
+        </article>
+        <article class="card">
+          <h3>Local secrets</h3>
+          <p>OAuth tokens, state, and logs stay on your machine and are excluded from git.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap callout">
+      <h2>What it does not do</h2>
+      <p>
+        It does not read email bodies, send email, archive or delete messages, or
+        upload your mailbox to a server. It is a local command-line tool, not a
+        hosted service.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>Gmail Organizer is an independent open-source project, not affiliated with Google. Gmail is a trademark of Google LLC.</p>
+      <p>
+        <a href="privacy.html">Privacy</a> ·
+        <a href="terms.html">Terms</a> ·
+        <a href="https://github.com/CharlesyWong/gmail-organizer">Source</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
