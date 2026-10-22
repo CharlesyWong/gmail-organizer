@@ -5,6 +5,31 @@ All notable changes to this project are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-22
+
+### Added
+
+- `scripts/run_organizer.bat`: Windows wrapper with virtualenv resolution,
+  `python` fallback, `--apply` default, argument passthrough, task log, and
+  exit-code propagation.
+- `scripts/register_task.ps1`: daily scheduled task with `IgnoreNew`,
+  `StartWhenAvailable`, a 30-minute limit, interactive-user principal, and a
+  `-DryRun` inspection mode.
+- README scheduling guide covering OAuth production publishing, registration,
+  manual verification, logs, and removal.
+- Windows CI smoke checks for the wrapper and registration script.
+
+### Changed
+
+- The dry-run summary header uses ASCII punctuation so `logs/task.log` reads
+  correctly in the default Windows console encoding.
+
+### Verified
+
+- Wrapper `--help` and a real `--dry-run --limit 3` both exit 0.
+- Registration `-DryRun` prints the expected `cmd.exe` action, working
+  directory, daily trigger, settings, and run-as identity.
+
 ## [1.0.0] - 2026-10-22
 
 First stable release.
