@@ -8,8 +8,8 @@ A local, rule-based Gmail automation that reads message **metadata**,
 classifies new mail, and applies `Auto/<Category>` labels. Built with the
 official Gmail API, OAuth2, pydantic, and pytest.
 
-> **Status:** v1.0.0 — stable, local-first automation. See
-> [CHANGELOG.md](CHANGELOG.md) for release history.
+> **Status:** v1.1.0 — stable local-first automation with Windows Task
+> Scheduler support. See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Why this exists
 
@@ -43,7 +43,7 @@ handling of personal data.
 
 ```text
 $ python -m gmail_organizer run --limit 20
-DRY RUN — no Gmail changes were made.
+DRY RUN - no Gmail changes were made.
 would apply: 10
 mode: bootstrap
 fetched: 20 | classified: 10 | unmatched: 10
@@ -171,6 +171,65 @@ after 7 days. Before enabling an unattended schedule, publish the app to
 6. On a successful non-dry-run, atomically advance `data/state.json`
    (gitignored). Dry runs and partial failures do not advance it.
 
+## Scheduling daily runs (Windows)
+
+The scheduled task runs [`scripts/run_organizer.bat`](scripts/run_organizer.bat),
+which changes to the repository root, creates `logs\`, uses the virtualenv
+interpreter (falling back to `python`), defaults to `--apply` when no arguments
+are given, appends output to `logs\task.log`, and returns the real exit code.
+
+Before registering:
+
+1. Complete `auth` interactively; Task Scheduler cannot finish browser consent.
+2. Publish the OAuth app to **In production** (unverified is fine for personal
+   use) so the refresh token does not expire after 7 days.
+
+Preview the wrapper without writing:
+
+```powershell
+scripts\run_organizer.bat --dry-run --limit 5
+Get-Content logs\task.log -Tail 30 -Encoding utf8
+```
+
+Inspect the task definition without registering it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\register_task.ps1 -DryRun
+```
+
+Register the daily task (default 08:00; change with `-Time`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\register_task.ps1 -Time 08:00
+```
+
+The task:
+
+- runs as the current user and only while that user is logged on (needed to read
+  the local token);
+- ignores new instances while one is running;
+- starts as soon as possible after a missed schedule;
+- stops after 30 minutes;
+- writes to `logs\task.log` and the rotating `logs\organizer.log`.
+
+Run it immediately and inspect the result:
+
+```powershell
+Start-ScheduledTask -TaskName "GmailOrganizer"
+Start-Sleep -Seconds 20
+Get-ScheduledTaskInfo -TaskName "GmailOrganizer"
+Get-Content logs\task.log -Tail 30 -Encoding utf8
+```
+
+Remove the task:
+
+```powershell
+Unregister-ScheduledTask -TaskName "GmailOrganizer" -Confirm:$false
+```
+
+A laptop that is powered off or logged out will not run the task; the next
+logged-on day catches up via `StartWhenAvailable`.
+
 ## Configuration
 
 Rules live in [`config/rules.yaml`](config/rules.yaml). Validate after editing:
@@ -262,7 +321,7 @@ See [SECURITY.md](SECURITY.md) for the security policy and reporting process.
 - [x] v0.3.0 — organizer pipeline, labels, watermark
 - [x] v0.4.0 — test hardening, logging, exit codes
 - [x] v1.0.0 — documented public release
-- [ ] v1.1.0 — Windows Task Scheduler
+- [x] v1.1.0 — Windows Task Scheduler
 - [ ] v1.2.0 — FastAPI endpoint
 - [ ] Later — thin local review UI and optional LLM classifier
 

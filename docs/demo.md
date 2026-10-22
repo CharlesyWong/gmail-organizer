@@ -18,7 +18,7 @@ OK: config/rules.yaml
 
 ```text
 $ python -m gmail_organizer run --limit 20
-DRY RUN — no Gmail changes were made.
+DRY RUN - no Gmail changes were made.
 would apply: 10
 mode: bootstrap
 fetched: 20 | classified: 10 | unmatched: 10
