@@ -5,6 +5,25 @@ All notable changes to this project are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-22
+
+First stable release.
+
+### Added
+
+- Public-facing README with CI badge, Mermaid architecture diagram, demo
+  transcript, safety model, design tradeoffs, and quality metrics.
+- `SECURITY.md` describing the local-only scope, secret handling, and private
+  vulnerability reporting.
+- `docs/demo.md` with sanitized, real-account run transcripts.
+- Repository description, topics, and public release metadata.
+
+### Notes
+
+- No functional changes since v0.4.0. This release is the documented public
+  v1.0.0 of the same verified pipeline.
+- Quality: 149 offline tests, 94% coverage, 85% CI gate, Ubuntu + Windows.
+
 ## [0.4.0] - 2026-10-22
 
 ### Added
