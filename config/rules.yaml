@@ -1,0 +1,50 @@
+# Classification rules for gmail-organizer.
+#
+# First matching rule wins. Within a condition, list entries are ORed.
+# Across conditions the default is AND; use `match: any` when any populated
+# condition may match. All matching is case-insensitive.
+
+label_prefix: "Auto"
+label_unmatched: false
+
+rules:
+  - name: recruiting
+    category: Recruiting
+    match: any
+    when:
+      from_domains:
+        - linkedin.com
+        - greenhouse.io
+        - lever.co
+        - workday.com
+        - myworkdayjobs.com
+      from_contains:
+        - talent
+        - recruiter
+        - careers
+      subject_contains_any:
+        - job application
+        - application received
+        - interview invitation
+        - recruiter
+
+  # --- Starter rules: uncomment and adjust after a dry run ---
+  # - name: newsletters
+  #   category: Newsletters
+  #   when:
+  #     subject_contains_any: [newsletter, weekly digest, unsubscribe]
+  #
+  # - name: finance
+  #   category: Finance
+  #   when:
+  #     subject_contains_any: [receipt, invoice, payment, statement]
+  #
+  # - name: school
+  #   category: School
+  #   when:
+  #     from_domains: [edu.my, my.edu]
+  #
+  # - name: notifications
+  #   category: Notifications
+  #   when:
+  #     subject_contains_any: ["security alert", "new login", "verify your email"]
