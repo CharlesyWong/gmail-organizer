@@ -3,13 +3,15 @@
 [![CI](https://github.com/CharlesyWong/gmail-organizer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/CharlesyWong/gmail-organizer/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+[![Project site](https://img.shields.io/badge/project_site-charlesywong.github.io-4f46e5)](https://charlesywong.github.io/gmail-organizer/)
 
 A local, rule-based Gmail automation that reads message **metadata**,
 classifies new mail, and applies `Auto/<Category>` labels. Built with the
 official Gmail API, OAuth2, pydantic, and pytest.
 
-> **Status:** v1.1.0 — stable local-first automation with Windows Task
-> Scheduler support. See [CHANGELOG.md](CHANGELOG.md) for release history.
+> **Status:** v1.2.0 — stable local-first automation with Windows Task
+> Scheduler support and an optional local FastAPI endpoint. See
+> [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Why this exists
 
@@ -36,7 +38,7 @@ handling of personal data.
 - Idempotent label application, case-insensitive reuse, and 409 recovery.
 - Per-message failure isolation: one bad message does not abort a run.
 - Rotating logs with privacy-safe INFO output; DEBUG is opt-in.
-- **149 offline tests at 94% coverage**, with an 85% CI gate on Ubuntu and
+- **164 offline tests at 94% coverage**, with an 85% CI gate on Ubuntu and
   Windows.
 
 ## Demo
@@ -230,6 +232,61 @@ Unregister-ScheduledTask -TaskName "GmailOrganizer" -Confirm:$false
 A laptop that is powered off or logged out will not run the task; the next
 logged-on day catches up via `StartWhenAvailable`.
 
+## Optional local API (FastAPI)
+
+Install the API extra (the `dev` extra also includes it):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[api]"
+```
+
+Generate a strong key and add it to `.env`:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+```dotenv
+ORGANIZER_API_KEY=paste-the-generated-key-here
+```
+
+Start the server. It binds **127.0.0.1 only**:
+
+```powershell
+.\.venv\Scripts\python.exe -m gmail_organizer.api
+```
+
+Or use the factory directly:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn gmail_organizer.api:create_app_from_env --factory --host 127.0.0.1 --port 8000
+```
+
+Endpoints:
+
+- `GET /health` — no auth, returns status and version.
+- `POST /run` — requires `X-API-Key`; body `{"dry_run": true, "limit": 5}`.
+  `dry_run` defaults to true, `limit` is optional, and the response is a
+  `RunSummary`.
+
+```powershell
+curl.exe http://127.0.0.1:8000/health
+
+curl.exe -X POST http://127.0.0.1:8000/run `
+  -H "X-API-Key: $env:ORGANIZER_API_KEY" `
+  -H "Content-Type: application/json" `
+  -d '{"dry_run":true,"limit":5}'
+```
+
+Status codes: 401 missing/wrong key, 409 a run is already in progress, 422
+invalid body, 502 Gmail API failure, 503 authorization failure, 500 state or
+unexpected failure. The endpoint is synchronous and single-flight; it holds a
+lock for the duration of a run.
+
+**Security:** keep the server on `127.0.0.1`, use a strong key, do not enable
+CORS or expose it publicly, and do not run the API and the scheduled task at the
+same moment. Use one uvicorn worker; the lock is per process.
+
 ## Configuration
 
 Rules live in [`config/rules.yaml`](config/rules.yaml). Validate after editing:
@@ -291,7 +348,7 @@ See [SECURITY.md](SECURITY.md) for the security policy and reporting process.
 .\.venv\Scripts\python.exe -m pytest --cov=gmail_organizer --cov-report=term-missing
 ```
 
-- **149 tests**, **94% coverage**.
+- **164 tests**, **94% coverage**.
 - All tests run offline with `FakeGmailClient`; no credentials or network.
 - CI runs on Ubuntu and Windows and fails below 85% coverage.
 
@@ -308,9 +365,9 @@ See [SECURITY.md](SECURITY.md) for the security policy and reporting process.
 - **Local watermark instead of the Gmail History API.** Simple, transparent,
   and inspectable as JSON. The one-hour overlap absorbs date-granularity quirks
   and idempotent label checks make the overlap harmless.
-- **No database or web UI in v1.** The CLI, JSON state, and rotating logs are
-  enough for a local single-user tool. FastAPI and a thin review UI are roadmap
-  items.
+- **No database or web UI in v1.** The CLI, JSON state, rotating logs, and an
+  optional local FastAPI endpoint are enough for a local single-user tool. A
+  thin review UI is a roadmap item.
 - **Labels are not cleaned up.** Reclassification can add a second Auto label;
   cleanup stays manual so the tool never removes user data implicitly.
 
@@ -322,7 +379,7 @@ See [SECURITY.md](SECURITY.md) for the security policy and reporting process.
 - [x] v0.4.0 — test hardening, logging, exit codes
 - [x] v1.0.0 — documented public release
 - [x] v1.1.0 — Windows Task Scheduler
-- [ ] v1.2.0 — FastAPI endpoint
+- [x] v1.2.0 — FastAPI endpoint
 - [ ] Later — thin local review UI and optional LLM classifier
 
 ## License

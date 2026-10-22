@@ -70,8 +70,8 @@ A second pass applies zero duplicates.
 
 ```text
 $ python -m pytest -q --cov=gmail_organizer --cov-report=term
-149 passed in 1.96s
-TOTAL 883 53 94%
+164 passed in 2.70s
+TOTAL 967 57 94%
 ```
 
 The CI workflow runs the same suite on Ubuntu and Windows with an 85% coverage

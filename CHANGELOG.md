@@ -5,6 +5,30 @@ All notable changes to this project are documented here. This project follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-23
+
+### Added
+
+- Optional local FastAPI endpoint (`pip install -e ".[api]"`) with:
+  - `GET /health` (no auth) and `POST /run` (API-key protected).
+  - `X-API-Key` validation with `secrets.compare_digest`; startup fails closed
+    when `ORGANIZER_API_KEY` is missing.
+  - Dry-run by default, optional `limit`, `RunSummary` responses, and
+    single-flight `409` handling.
+  - Localhost-only binding, no CORS, explicit 401/409/422/502/503/500 mappings.
+- TestClient coverage for auth, validation, lock contention, error mappings,
+  and the environment factory. **164 tests, 94% coverage.**
+- OAuth app-information site under `docs/`: home, privacy policy with Google API
+  Limited Use disclosure, terms of service, and responsive static CSS.
+- GitHub Pages deployment, Search Console URL-prefix verification, and
+  successful OAuth production publishing using the `charlesywong.github.io`
+  authorized domain.
+
+### Changed
+
+- Development test dependency moved to `httpx2` for the Starlette/FastAPI test
+  client, removing the `httpx` deprecation warning.
+
 ## [1.1.0] - 2026-10-22
 
 ### Added
