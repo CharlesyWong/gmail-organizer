@@ -21,11 +21,13 @@ class FakeGmailClient:
         self.created_labels: list[str] = []
         self.add_label_calls: list[tuple[str, str]] = []
         self.get_message_calls: list[str] = []
+        self.iter_calls: list[tuple[str, int]] = []
         self.fail_on_get: dict[str, Exception] = {}
         self.fail_on_add: dict[str, Exception] = {}
         self._next_label_id = 1
 
     def iter_message_ids(self, query: str, limit: int) -> Iterator[str]:
+        self.iter_calls.append((query, limit))
         for message_id in list(self.messages)[:limit]:
             yield message_id
 

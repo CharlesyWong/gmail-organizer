@@ -19,7 +19,7 @@ credentials.json
 token.json
 
 # Runtime state and logs
-data/state.json
+data/state.json*
 logs/
 *.log
 

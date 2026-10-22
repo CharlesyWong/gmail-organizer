@@ -4,18 +4,16 @@ A rule-based Gmail automation that reads message metadata and applies labels so
 new mail is easier to triage. Built with the official Gmail API, OAuth2,
 pydantic, and pytest.
 
-> **Status:** v0.2.0 — OAuth and read-only Gmail metadata access work end to end.
-> The labeling pipeline and watermark arrive in v0.3.0.
+> **Status:** v0.3.0 — the full rule-based labeling pipeline works end to end,
+> with dry-run by default, incremental runs, and idempotent label application.
 > See [CHANGELOG.md](CHANGELOG.md).
 
 ## What works today
 
 - `auth` — desktop OAuth consent, token refresh, and scope validation.
-- `list` — fetch sender, subject, date, and ID for recent messages. Read-only.
+- `list` — read sender, subject, date, and ID for recent messages.
+- `run` — classify messages and add `Auto/<Category>` labels. Dry-run by default.
 - `check-config` — validate the YAML rule file with field-level errors.
-
-No current command modifies your mailbox. Label creation and application are
-implemented in the Gmail client but are not exposed by the CLI until v0.3.0.
 
 ## Setup
 
@@ -44,27 +42,77 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Adjust `GMAIL_QUERY`, limits, or paths if needed. Defaults are suitable for a
-personal inbox.
+Adjust `GMAIL_QUERY`, limits, or paths if needed.
 
-### 4. Authorize and test
+### 4. Authorize
 
 ```powershell
 .\.venv\Scripts\python.exe -m gmail_organizer auth
-.\.venv\Scripts\python.exe -m gmail_organizer list --limit 5
 ```
 
 Google will show **“Google hasn’t verified this app”** for a personal OAuth app.
 Click **Advanced → Go to … (unsafe)**; this is expected for an unverified app
 that you own. Approve the Gmail modify scope.
 
-The `gmail.modify` scope is the narrowest scope that supports both reading
-metadata and applying labels. The current CLI only reads.
-
 **Token lifetime:** while the OAuth app is in **Testing**, refresh tokens expire
 after 7 days. Before using Windows Task Scheduler, publish the app to
 **In production** (unverified is fine for personal use) and re-run `auth` once.
 If Google disables the Publish button for your project, re-run `auth` weekly.
+
+## Running it
+
+```powershell
+# Preview what would change (default; no Gmail writes)
+.\.venv\Scripts\python.exe -m gmail_organizer run
+
+# Apply labels to a bounded scan
+.\.venv\Scripts\python.exe -m gmail_organizer run --apply --limit 20
+
+# Deliberate backfill beyond the saved watermark
+.\.venv\Scripts\python.exe -m gmail_organizer run --full --limit 100
+
+# Forget the watermark and start over with a bootstrap scan
+.\.venv\Scripts\python.exe -m gmail_organizer run --reset-state
+```
+
+### Run modes
+
+- **Bootstrap** — used when no state file exists. Scans the base query and
+  processes the newest `GMAIL_BOOTSTRAP_LIMIT` messages (default 100).
+- **Incremental** — used after a successful apply. Scans the base query plus
+  `after:<watermark - 1h>` with a one-hour overlap, capped by
+  `GMAIL_INCREMENTAL_LIMIT` (default 200).
+- **Full** — ignores the watermark and rescans the base query. Use it for older
+  mail or after changing rules.
+- On bootstrap, `--limit` sets the backfill depth. Mail older than that is not
+  revisited unless you later run with `--full`.
+
+### What a run does
+
+1. Fetch metadata only: From, Subject, Date, labels, internal date.
+2. Apply rules in order; the first match wins.
+3. Reuse an existing `Auto/<Category>` label, or create it once.
+4. Skip messages that already have the target label.
+5. Add the label with `messages.modify` — labels are never removed, and mail is
+   never archived, trashed, or marked read.
+6. On a successful non-dry-run, atomically advance the local watermark in
+   `data/state.json` (gitignored). Dry runs and partial failures do not advance
+   it.
+
+Sample output:
+
+```text
+DRY RUN — no Gmail changes were made.
+would apply: 10
+mode: bootstrap
+fetched: 20 | classified: 10 | unmatched: 10
+categories: Recruiting=10
+already labeled: 0 | eligible: 10
+labels applied: 0 | labels created: 0
+failed: 0
+state: unchanged
+duration: 9.94s
+```
 
 ## Configuration
 
@@ -89,14 +137,20 @@ The validator enforces:
 - Rules are evaluated top to bottom, and the first match wins.
 
 Labels are named `<label_prefix>/<category>`, for example `Auto/Recruiting`.
+Rule changes only affect messages processed in later runs. Use `--full` to
+reclassify older mail; old labels are not removed automatically.
 
 ## Safety
 
 - No message bodies are downloaded; only From/Subject/Date metadata.
-- Credentials and tokens stay in `.secrets/` (gitignored).
-- The program requests `gmail.modify`; the current CLI is read-only.
-- If the token is missing, invalid, or missing a scope, commands exit with
-  code 3 and tell you to re-run `auth`.
+- Dry-run is the default. `--apply` is required to write to Gmail.
+- The only Gmail mutation is adding a label. Nothing is deleted or archived.
+- Credentials and tokens stay in `.secrets/` (gitignored); run state is in
+  `data/state.json` (gitignored).
+- Per-message failures are isolated and counted; the run continues and does not
+  advance the watermark.
+- Exit codes: `0` success, `1` partial failures, `2` config/state error,
+  `3` auth problem, `4` fatal Gmail API error.
 
 ## Development
 
@@ -105,14 +159,14 @@ Labels are named `<label_prefix>/<category>`, for example `Auto/Recruiting`.
 .\.venv\Scripts\python.exe -m gmail_organizer --help
 ```
 
-All 89 tests run offline with a fake Gmail client; no credentials or network
+All 126 tests run offline with a fake Gmail client; no credentials or network
 access are required for the test suite.
 
 ## Roadmap
 
 - [x] v0.1.0 — config + rule classifier
 - [x] v0.2.0 — OAuth + Gmail client
-- [ ] v0.3.0 — organizer pipeline, labels, watermark
+- [x] v0.3.0 — organizer pipeline, labels, watermark
 - [ ] v0.4.0 — test hardening, logging, exit codes
 - [ ] v1.0.0 — documented public release
 - [ ] v1.1.0 — Windows Task Scheduler

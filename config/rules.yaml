@@ -16,18 +16,25 @@ rules:
     match: any
     when:
       from_domains:
-        - linkedin.com
         - greenhouse.io
         - lever.co
         - workday.com
         - myworkdayjobs.com
+        - jobstreet.com
+        - efinancialcareers.com
+      # LinkedIn sends job alerts from dedicated addresses; matching the whole
+      # linkedin.com domain would also catch connection suggestions.
       from_contains:
+        - jobs-noreply@linkedin.com
+        - jobalerts-noreply@linkedin.com
         - talent
         - recruiter
         - careers
       subject_contains_any:
         - job application
         - application received
+        - application update
+        - application submitted
         - interview invitation
         - recruiter
 

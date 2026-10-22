@@ -15,6 +15,10 @@ class AuthError(GmailOrganizerError):
     """Gmail credentials are missing, expired, or insufficient."""
 
 
+class StateError(GmailOrganizerError):
+    """The incremental run state is missing, corrupt, or unwritable."""
+
+
 class GmailAPIError(GmailOrganizerError):
     """A Gmail API request failed."""
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,3 +39,22 @@ class ClassificationResult:
     label_name: str
     matched_rule: str
     reason: str
+
+
+class RunSummary(BaseModel):
+    """Counts from one organizer run. Safe to log: no senders or subjects."""
+
+    mode: Literal["bootstrap", "incremental", "full"]
+    dry_run: bool
+    fetched: int = 0
+    classified: int = 0
+    unmatched: int = 0
+    eligible: int = 0
+    already_labeled: int = 0
+    labels_applied: int = 0
+    labels_created: int = 0
+    failed: int = 0
+    by_category: dict[str, int] = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+    state_updated: bool = False
+    duration_seconds: float = 0.0
