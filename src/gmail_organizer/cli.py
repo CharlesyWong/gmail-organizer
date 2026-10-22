@@ -11,6 +11,7 @@ from .config import load_rules
 from .exceptions import AuthError, ConfigError, GmailAPIError, StateError
 from .gmail.auth import authorize
 from .gmail.google import build_gmail_client
+from .logging_setup import configure_logging
 from .models import RunSummary
 from .organizer import build_organizer
 from .settings import load_settings
@@ -61,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Gmail search query (default: GMAIL_QUERY from .env).",
     )
+    listing.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable DEBUG logging (includes sender and subject).",
+    )
 
     run = subcommands.add_parser(
         "run",
@@ -103,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--reset-state",
         action="store_true",
         help="Delete the saved watermark and start from a bootstrap scan.",
+    )
+    run.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable DEBUG logging (includes sender and subject).",
     )
 
     check = subcommands.add_parser(
@@ -155,12 +166,16 @@ def _auth() -> int:
     except ConfigError as exc:
         return _print_config_error(exc)
 
+    logger = configure_logging(level=settings.log_level)
+
     try:
         token_path = authorize(settings.credentials_path, settings.token_path)
     except AuthError as exc:
+        logger.error("Authorization error: %s", exc)
         print(f"Authorization error:\n{exc}", file=sys.stderr)
         return 3
 
+    logger.debug("Token saved to %s", token_path)
     print(f"Authorized. Token saved to {token_path}")
     return 0
 
@@ -171,6 +186,10 @@ def _list(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         return _print_config_error(exc)
 
+    logger = configure_logging(
+        level=settings.log_level,
+        verbose=args.verbose,
+    )
     query = args.query or settings.query
     try:
         client = build_gmail_client(settings)
@@ -179,9 +198,11 @@ def _list(args: argparse.Namespace) -> int:
             for message_id in client.iter_message_ids(query, args.limit)
         ]
     except AuthError as exc:
+        logger.error("Authorization error: %s", exc)
         print(f"Authorization error:\n{exc}", file=sys.stderr)
         return 3
     except GmailAPIError as exc:
+        logger.error("Gmail API error: %s", exc)
         if exc.status_code == 401:
             print(
                 "Gmail authorization failed. Run "
@@ -205,7 +226,14 @@ def _list(args: argparse.Namespace) -> int:
         )
         subject = " ".join(message.subject.split()) or "(no subject)"
         print(f"{date} | {sender} | {subject} | {message.id}")
+        logger.debug(
+            "Listed id=%s sender=%s subject=%r",
+            message.id,
+            message.sender_email,
+            message.subject,
+        )
 
+    logger.debug("List complete: %d message(s)", len(messages))
     print(f"{len(messages)} message(s) from query: {query}")
     return 0
 
@@ -214,6 +242,15 @@ def _run(args: argparse.Namespace) -> int:
     try:
         config = load_rules(args.config)
         settings = load_settings()
+    except ConfigError as exc:
+        return _print_config_error(exc)
+
+    logger = configure_logging(
+        level=settings.log_level,
+        verbose=args.verbose,
+    )
+
+    try:
         organizer = build_organizer(config, settings)
         summary = organizer.run(
             dry_run=not args.apply,
@@ -222,15 +259,16 @@ def _run(args: argparse.Namespace) -> int:
             full=args.full,
             reset_state=args.reset_state,
         )
-    except ConfigError as exc:
-        return _print_config_error(exc)
     except StateError as exc:
+        logger.error("State error: %s", exc)
         print(f"State error:\n{exc}", file=sys.stderr)
         return 2
     except AuthError as exc:
+        logger.error("Authorization error: %s", exc)
         print(f"Authorization error:\n{exc}", file=sys.stderr)
         return 3
     except GmailAPIError as exc:
+        logger.error("Gmail API error: %s", exc)
         if exc.status_code == 401:
             print(
                 "Gmail authorization failed. Run "
@@ -239,6 +277,13 @@ def _run(args: argparse.Namespace) -> int:
             )
             return 3
         print(f"Gmail API error:\n{exc}", file=sys.stderr)
+        return 4
+    except Exception as exc:
+        logger.exception("Unexpected run failure")
+        print(
+            f"Unexpected error: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
         return 4
 
     _print_summary(summary)
