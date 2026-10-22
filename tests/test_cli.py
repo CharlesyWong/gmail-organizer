@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from gmail_organizer.cli import main
-from gmail_organizer.exceptions import AuthError, GmailAPIError
+from gmail_organizer.exceptions import (
+    AuthError,
+    ConfigError,
+    GmailAPIError,
+    StateError,
+)
+from gmail_organizer.models import RunSummary
 from gmail_organizer.settings import Settings
 
 
@@ -166,4 +172,152 @@ def test_list_api_error_returns_4(monkeypatch, capsys) -> None:
     )
 
     assert main(["list"]) == 4
+    assert "Gmail API error" in capsys.readouterr().err
+
+
+class _FakeOrganizer:
+    def __init__(self, summary: RunSummary | None = None, error=None) -> None:
+        self.summary = summary
+        self.error = error
+        self.calls: list[dict] = []
+
+    def run(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return self.summary
+
+
+def make_summary(**overrides) -> RunSummary:
+    values = {
+        "mode": "bootstrap",
+        "dry_run": True,
+        "fetched": 2,
+        "classified": 1,
+        "unmatched": 1,
+        "eligible": 1,
+    }
+    values.update(overrides)
+    return RunSummary(**values)
+
+
+def patch_run(monkeypatch, organizer) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_rules", lambda path: object())
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_organizer",
+        lambda config, settings: organizer,
+    )
+
+
+def test_run_defaults_to_dry_run(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(make_summary())
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 0
+    assert fake.calls[0]["dry_run"] is True
+
+    output = capsys.readouterr().out
+    assert "DRY RUN" in output
+    assert "would apply: 1" in output
+
+
+def test_run_apply(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(
+        make_summary(
+            dry_run=False,
+            labels_applied=1,
+            labels_created=1,
+            state_updated=True,
+        )
+    )
+    patch_run(monkeypatch, fake)
+
+    assert main(["run", "--apply"]) == 0
+    assert fake.calls[0]["dry_run"] is False
+
+    output = capsys.readouterr().out
+    assert "APPLY RUN" in output
+    assert "labels applied: 1" in output
+
+
+def test_run_forwards_options(monkeypatch) -> None:
+    fake = _FakeOrganizer(make_summary())
+    patch_run(monkeypatch, fake)
+
+    assert main(
+        [
+            "run",
+            "--limit",
+            "5",
+            "--query",
+            "in:inbox",
+            "--full",
+            "--reset-state",
+        ]
+    ) == 0
+    assert fake.calls[0] == {
+        "dry_run": True,
+        "limit": 5,
+        "query": "in:inbox",
+        "full": True,
+        "reset_state": True,
+    }
+
+
+def test_run_partial_failure_exits_1(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(
+        make_summary(failed=1, errors=["m1: GmailAPIError"])
+    )
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 1
+    assert "m1: GmailAPIError" in capsys.readouterr().err
+
+
+def test_run_config_error_exits_2(monkeypatch, capsys) -> None:
+    def fail_load(path):
+        raise ConfigError("bad rules")
+
+    monkeypatch.setattr("gmail_organizer.cli.load_rules", fail_load)
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+
+    assert main(["run"]) == 2
+    assert "Configuration error" in capsys.readouterr().err
+
+
+def test_run_state_error_exits_2(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(error=StateError("corrupt state"))
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 2
+    assert "State error" in capsys.readouterr().err
+
+
+def test_run_auth_error_exits_3(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_rules", lambda path: object())
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+
+    def fail_build(config, settings):
+        raise AuthError("No saved Gmail token")
+
+    monkeypatch.setattr("gmail_organizer.cli.build_organizer", fail_build)
+
+    assert main(["run"]) == 3
+    assert "No saved Gmail token" in capsys.readouterr().err
+
+
+def test_run_gmail_401_exits_3(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(error=GmailAPIError("expired", status_code=401))
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 3
+    assert "authorization failed" in capsys.readouterr().err.lower()
+
+
+def test_run_gmail_500_exits_4(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(error=GmailAPIError("server", status_code=500))
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 4
     assert "Gmail API error" in capsys.readouterr().err
