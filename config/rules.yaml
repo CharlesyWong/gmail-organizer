@@ -3,6 +3,9 @@
 # First matching rule wins. Within a condition, list entries are ORed.
 # Across conditions the default is AND; use `match: any` when any populated
 # condition may match. All matching is case-insensitive.
+#
+# Validate after editing:
+#   python -m gmail_organizer check-config
 
 label_prefix: "Auto"
 label_unmatched: false
