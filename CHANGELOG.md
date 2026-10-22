@@ -5,6 +5,28 @@ All notable changes to this project are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-22
+
+### Added
+
+- Environment settings loaded from `.env`, with validation for paths, query,
+  and positive limits.
+- Desktop OAuth authorization, token refresh, and saved-scope validation.
+- Gmail API client: paginated message IDs, metadata-only message reads, label
+  listing/creation, and label application.
+- Retry helper with exponential backoff, jitter, `Retry-After` support, and
+  selective handling of 429, rate-limited 403, 5xx, and network timeouts.
+- `auth` and `list` CLI commands.
+- Offline `FakeGmailClient` plus tests for settings, auth errors, retry
+  behavior, metadata parsing, pagination, and CLI exits. 89 tests total.
+- UTF-8 safe CLI output for Windows consoles.
+
+### Fixed
+
+- Token scope validation now reads the scopes stored in the token file instead
+  of overwriting them with the requested scopes.
+- Non-ASCII subjects no longer crash the Windows console output.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added

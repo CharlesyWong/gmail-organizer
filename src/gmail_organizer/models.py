@@ -16,6 +16,7 @@ class EmailMessage:
     sender_name: str
     subject: str
     date: datetime | None = None
+    internal_date_ms: int | None = None
     label_ids: tuple[str, ...] = field(default_factory=tuple)
 
     @property

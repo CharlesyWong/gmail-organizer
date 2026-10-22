@@ -34,6 +34,7 @@ def make_message():
         sender_email: str = "alerts@linkedin.com",
         sender_name: str = "LinkedIn",
         subject: str = "You have a new job alert",
+        internal_date_ms: int | None = 1_729_600_000_000,
         label_ids: tuple[str, ...] = (),
     ) -> EmailMessage:
         return EmailMessage(
@@ -43,8 +44,19 @@ def make_message():
             sender_name=sender_name,
             subject=subject,
             date=datetime(2026, 10, 22, tzinfo=timezone.utc),
+            internal_date_ms=internal_date_ms,
             label_ids=label_ids,
         )
+
+    return _make
+
+
+@pytest.fixture
+def make_fake_gmail():
+    from fake_gmail import FakeGmailClient
+
+    def _make(messages=()) -> FakeGmailClient:
+        return FakeGmailClient(messages)
 
     return _make
 
