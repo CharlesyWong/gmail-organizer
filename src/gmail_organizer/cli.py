@@ -292,7 +292,7 @@ def _run(args: argparse.Namespace) -> int:
 
 def _print_summary(summary: RunSummary) -> None:
     if summary.dry_run:
-        print("DRY RUN — no Gmail changes were made.")
+        print("DRY RUN - no Gmail changes were made.")
         print(f"would apply: {summary.eligible}")
     else:
         print("APPLY RUN")

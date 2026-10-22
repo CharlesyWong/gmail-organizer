@@ -32,3 +32,14 @@ jobs:
 
       - name: Run tests with coverage
         run: pytest -q --cov=gmail_organizer --cov-report=term-missing --cov-fail-under=85
+
+      - name: Smoke-test scheduler wrapper
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: scripts\run_organizer.bat --help
+
+      - name: Check scheduler registration script
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $null = [scriptblock]::Create((Get-Content -Raw scripts/register_task.ps1))
