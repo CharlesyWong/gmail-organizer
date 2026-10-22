@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from gmail_organizer.cli import main
+from gmail_organizer.exceptions import AuthError, GmailAPIError
+from gmail_organizer.settings import Settings
 
 
 def test_check_config_valid(write_rules, valid_rules_yaml, capsys) -> None:
@@ -38,3 +40,130 @@ def test_no_command_prints_help(capsys) -> None:
     output = capsys.readouterr().out
     assert "check-config" in output
     assert "Rule-based Gmail organizer" in output
+
+
+def test_auth_success(monkeypatch, tmp_path, capsys) -> None:
+    token_path = tmp_path / "token.json"
+    monkeypatch.setattr(
+        "gmail_organizer.cli.load_settings",
+        lambda: Settings(token_path=token_path),
+    )
+    monkeypatch.setattr(
+        "gmail_organizer.cli.authorize",
+        lambda credentials_path, token: token,
+    )
+
+    assert main(["auth"]) == 0
+    assert "Token saved" in capsys.readouterr().out
+
+
+def test_auth_error_returns_3(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+
+    def fail(credentials_path, token_path):
+        raise AuthError("missing credentials")
+
+    monkeypatch.setattr("gmail_organizer.cli.authorize", fail)
+
+    assert main(["auth"]) == 3
+    assert "missing credentials" in capsys.readouterr().err
+
+
+def test_list_prints_metadata(
+    monkeypatch, make_message, make_fake_gmail, capsys
+) -> None:
+    fake = make_fake_gmail(
+        [
+            make_message(
+                message_id="m1",
+                sender_name="LinkedIn",
+                sender_email="jobs@linkedin.com",
+                subject="Interview invitation",
+            ),
+            make_message(
+                message_id="m2",
+                sender_name="News",
+                sender_email="news@example.org",
+                subject="Weekly digest",
+            ),
+        ]
+    )
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_gmail_client", lambda settings: fake
+    )
+
+    assert main(["list", "--limit", "2"]) == 0
+
+    output = capsys.readouterr().out
+    assert "m1" in output
+    assert "Interview invitation" in output
+    assert "2 message(s)" in output
+
+
+def test_list_handles_unicode_subject(
+    monkeypatch, make_message, make_fake_gmail, capsys
+) -> None:
+    fake = make_fake_gmail(
+        [make_message(message_id="u1", subject="Application ✅ received")]
+    )
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_gmail_client", lambda settings: fake
+    )
+
+    assert main(["list", "--limit", "1"]) == 0
+    assert "✅" in capsys.readouterr().out
+
+
+def test_list_empty_result(monkeypatch, make_fake_gmail, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_gmail_client",
+        lambda settings: make_fake_gmail(),
+    )
+
+    assert main(["list"]) == 0
+    assert "No messages matched" in capsys.readouterr().out
+
+
+def test_list_auth_error_returns_3(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+
+    def fail(settings):
+        raise AuthError("No saved Gmail token")
+
+    monkeypatch.setattr("gmail_organizer.cli.build_gmail_client", fail)
+
+    assert main(["list"]) == 3
+    assert "No saved Gmail token" in capsys.readouterr().err
+
+
+class _FailingClient:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+    def iter_message_ids(self, query: str, limit: int):
+        raise GmailAPIError("request failed", status_code=self.status_code)
+
+
+def test_list_401_returns_3(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_gmail_client",
+        lambda settings: _FailingClient(401),
+    )
+
+    assert main(["list"]) == 3
+    assert "authorization failed" in capsys.readouterr().err.lower()
+
+
+def test_list_api_error_returns_4(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("gmail_organizer.cli.load_settings", lambda: Settings())
+    monkeypatch.setattr(
+        "gmail_organizer.cli.build_gmail_client",
+        lambda settings: _FailingClient(500),
+    )
+
+    assert main(["list"]) == 4
+    assert "Gmail API error" in capsys.readouterr().err
