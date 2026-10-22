@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from gmail_organizer.cli import main
 from gmail_organizer.exceptions import (
     AuthError,
@@ -321,3 +325,50 @@ def test_run_gmail_500_exits_4(monkeypatch, capsys) -> None:
 
     assert main(["run"]) == 4
     assert "Gmail API error" in capsys.readouterr().err
+
+
+def test_run_unexpected_error_exits_4(monkeypatch, capsys) -> None:
+    fake = _FakeOrganizer(error=RuntimeError("boom"))
+    patch_run(monkeypatch, fake)
+
+    assert main(["run"]) == 4
+    assert "Unexpected error" in capsys.readouterr().err
+
+
+def test_run_rejects_apply_and_dry_run() -> None:
+    with pytest.raises(SystemExit) as info:
+        main(["run", "--apply", "--dry-run"])
+
+    assert info.value.code == 2
+
+
+def test_run_rejects_zero_limit() -> None:
+    with pytest.raises(SystemExit) as info:
+        main(["run", "--limit", "0"])
+
+    assert info.value.code == 2
+
+
+def test_list_rejects_zero_limit() -> None:
+    with pytest.raises(SystemExit) as info:
+        main(["list", "--limit", "0"])
+
+    assert info.value.code == 2
+
+
+def test_run_verbose_configures_debug(monkeypatch) -> None:
+    calls: list[dict] = []
+
+    def fake_configure(**kwargs):
+        calls.append(kwargs)
+        return logging.getLogger("gmail_organizer")
+
+    monkeypatch.setattr(
+        "gmail_organizer.cli.configure_logging",
+        fake_configure,
+    )
+    fake = _FakeOrganizer(make_summary())
+    patch_run(monkeypatch, fake)
+
+    assert main(["run", "--verbose"]) == 0
+    assert calls == [{"level": "INFO", "verbose": True}]

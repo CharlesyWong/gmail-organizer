@@ -157,6 +157,73 @@ def test_retries_timeout() -> None:
     assert calls == 2
 
 
+def test_retry_after_is_capped_at_max_delay() -> None:
+    calls = 0
+    sleeps: list[float] = []
+
+    def action() -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise http_error(429, "rateLimitExceeded", retry_after="60")
+        return "ok"
+
+    result = retry_call(
+        action,
+        max_attempts=2,
+        max_delay=3.0,
+        sleep=sleeps.append,
+        random_func=lambda: 0.0,
+    )
+
+    assert result == "ok"
+    assert sleeps == [3.0]
+
+
+def test_quota_exceeded_403_retries() -> None:
+    calls = 0
+
+    def action() -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise http_error(403, "quotaExceeded")
+        return "ok"
+
+    assert (
+        retry_call(
+            action,
+            max_attempts=2,
+            sleep=lambda _: None,
+            random_func=lambda: 0.0,
+        )
+        == "ok"
+    )
+    assert calls == 2
+
+
+def test_connection_error_retries() -> None:
+    calls = 0
+
+    def action() -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ConnectionError("reset")
+        return "ok"
+
+    assert (
+        retry_call(
+            action,
+            max_attempts=2,
+            sleep=lambda _: None,
+            random_func=lambda: 0.0,
+        )
+        == "ok"
+    )
+    assert calls == 2
+
+
 def test_invalid_max_attempts() -> None:
     with pytest.raises(ValueError, match="at least 1"):
         retry_call(lambda: None, max_attempts=0)
