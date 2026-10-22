@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from gmail_organizer.classification import RuleBasedClassifier
@@ -351,5 +352,85 @@ def test_no_messages_does_not_create_state(
     summary = organizer.run(dry_run=False)
 
     assert summary.fetched == 0
+    assert summary.state_updated is False
+    assert store.load() is None
+
+
+def test_subject_is_logged_only_at_debug(
+    make_message, make_fake_gmail, tmp_path, caplog
+) -> None:
+    gmail = make_fake_gmail(
+        [make_message(message_id="m1", subject="Secret Subject")]
+    )
+    organizer, _ = make_pipeline(gmail, tmp_path)
+
+    caplog.set_level(logging.INFO, logger="gmail_organizer")
+    organizer.run(dry_run=True)
+    info_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Secret Subject" not in info_text
+
+    caplog.clear()
+    caplog.set_level(logging.DEBUG, logger="gmail_organizer")
+    organizer.run(dry_run=True)
+    debug_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Secret Subject" in debug_text
+
+
+def test_error_list_is_capped(make_message, make_fake_gmail, tmp_path) -> None:
+    messages = [make_message(message_id=f"m{i}") for i in range(25)]
+    gmail = make_fake_gmail(messages)
+    for index in range(25):
+        gmail.fail_on_get[f"m{index}"] = GmailAPIError("boom")
+    organizer, store = make_pipeline(gmail, tmp_path)
+
+    summary = organizer.run(dry_run=False)
+
+    assert summary.failed == 25
+    assert len(summary.errors) == 20
+    assert summary.state_updated is False
+    assert store.load() is None
+
+
+def test_dry_run_does_not_modify_existing_state(
+    make_message, make_fake_gmail, tmp_path
+) -> None:
+    gmail = make_fake_gmail([make_message(message_id="m1")])
+    organizer, store = make_pipeline(gmail, tmp_path)
+    state = RunState(
+        last_internal_date_ms=2_000_000_000_000,
+        last_run_utc=datetime(2026, 10, 21, tzinfo=timezone.utc),
+    )
+    store.save(state)
+    before = state.model_dump()
+
+    summary = organizer.run(dry_run=True)
+
+    after = store.load()
+    assert after is not None
+    assert after.model_dump() == before
+    assert summary.mode == "incremental"
+    assert summary.state_updated is False
+
+
+def test_label_creation_failure_is_isolated(
+    make_message, make_fake_gmail, tmp_path
+) -> None:
+    gmail = make_fake_gmail(
+        [
+            make_message(message_id="m1"),
+            make_message(message_id="m2"),
+        ]
+    )
+
+    def fail(name: str) -> str:
+        raise GmailAPIError("boom", status_code=500)
+
+    gmail.create_label = fail  # type: ignore[method-assign]
+    organizer, store = make_pipeline(gmail, tmp_path)
+
+    summary = organizer.run(dry_run=False)
+
+    assert summary.failed == 2
+    assert summary.labels_applied == 0
     assert summary.state_updated is False
     assert store.load() is None

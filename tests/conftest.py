@@ -21,6 +21,17 @@ rules:
 """
 
 
+@pytest.fixture(autouse=True)
+def _silence_cli_logging(monkeypatch):
+    """Keep CLI tests from creating logs/ files; logging has its own tests."""
+    import logging
+
+    monkeypatch.setattr(
+        "gmail_organizer.cli.configure_logging",
+        lambda **kwargs: logging.getLogger("gmail_organizer"),
+    )
+
+
 @pytest.fixture
 def valid_rules_yaml() -> str:
     return VALID_RULES_YAML

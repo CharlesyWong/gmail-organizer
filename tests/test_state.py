@@ -83,3 +83,28 @@ def test_reset_removes_state(tmp_path) -> None:
 
 def test_reset_missing_state_is_noop(tmp_path) -> None:
     StateStore(tmp_path / "missing.json").reset()
+
+
+def test_save_into_file_parent_raises_state_error(tmp_path) -> None:
+    blocked = tmp_path / "blocked"
+    blocked.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(StateError, match="Could not create state directory"):
+        StateStore(blocked / "state.json").save(make_state())
+
+
+def test_replace_failure_raises_and_cleans_temp(tmp_path, monkeypatch) -> None:
+    store = StateStore(tmp_path / "state.json")
+
+    def fail_replace(source, destination):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(
+        "gmail_organizer.state.os.replace",
+        fail_replace,
+    )
+
+    with pytest.raises(StateError, match="Could not write run state"):
+        store.save(make_state())
+
+    assert not (tmp_path / "state.json.tmp").exists()

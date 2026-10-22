@@ -4,9 +4,9 @@ A rule-based Gmail automation that reads message metadata and applies labels so
 new mail is easier to triage. Built with the official Gmail API, OAuth2,
 pydantic, and pytest.
 
-> **Status:** v0.3.0 — the full rule-based labeling pipeline works end to end,
-> with dry-run by default, incremental runs, and idempotent label application.
-> See [CHANGELOG.md](CHANGELOG.md).
+> **Status:** v0.4.0 — the rule-based labeling pipeline is complete, with
+> dry-run by default, incremental runs, idempotent label application, rotating
+> logs, and a 94% test-coverage gate. See [CHANGELOG.md](CHANGELOG.md).
 
 ## What works today
 
@@ -14,6 +14,7 @@ pydantic, and pytest.
 - `list` — read sender, subject, date, and ID for recent messages.
 - `run` — classify messages and add `Auto/<Category>` labels. Dry-run by default.
 - `check-config` — validate the YAML rule file with field-level errors.
+- Rotating file logs with INFO-level privacy defaults and opt-in DEBUG detail.
 
 ## Setup
 
@@ -73,6 +74,9 @@ If Google disables the Publish button for your project, re-run `auth` weekly.
 
 # Forget the watermark and start over with a bootstrap scan
 .\.venv\Scripts\python.exe -m gmail_organizer run --reset-state
+
+# Per-message DEBUG detail (includes sender and subject) in console and logs
+.\.venv\Scripts\python.exe -m gmail_organizer run --verbose
 ```
 
 ### Run modes
@@ -114,6 +118,19 @@ state: unchanged
 duration: 9.94s
 ```
 
+## Logging and diagnostics
+
+- Logs go to stderr and `logs/organizer.log`, rotating at 5 MB with three
+  backups. `logs/` is gitignored.
+- Default level is INFO: run mode, counts, created labels, watermark updates,
+  and errors. Sender and subject appear **only at DEBUG** (`--verbose` or
+  `LOG_LEVEL=DEBUG`).
+- Tokens, client secrets, message bodies, and raw request headers are never
+  logged.
+- Per-message failures include the message ID and a traceback, but not the
+  subject, and are summarized in the run output.
+- Unexpected failures exit with code 4 instead of showing a raw traceback.
+
 ## Configuration
 
 Rules live in [`config/rules.yaml`](config/rules.yaml). Validate after editing:
@@ -149,6 +166,8 @@ reclassify older mail; old labels are not removed automatically.
   `data/state.json` (gitignored).
 - Per-message failures are isolated and counted; the run continues and does not
   advance the watermark.
+- INFO logs contain counts and label names; sender/subject require DEBUG, and
+  the log file is gitignored.
 - Exit codes: `0` success, `1` partial failures, `2` config/state error,
   `3` auth problem, `4` fatal Gmail API error.
 
@@ -156,18 +175,20 @@ reclassify older mail; old labels are not removed automatically.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pytest --cov=gmail_organizer --cov-report=term-missing
 .\.venv\Scripts\python.exe -m gmail_organizer --help
 ```
 
-All 126 tests run offline with a fake Gmail client; no credentials or network
-access are required for the test suite.
+All **149 tests** run offline with a fake Gmail client; no credentials or
+network access are required for the test suite. Coverage is **94%**, and CI
+fails below 85%.
 
 ## Roadmap
 
 - [x] v0.1.0 — config + rule classifier
 - [x] v0.2.0 — OAuth + Gmail client
 - [x] v0.3.0 — organizer pipeline, labels, watermark
-- [ ] v0.4.0 — test hardening, logging, exit codes
+- [x] v0.4.0 — test hardening, logging, exit codes
 - [ ] v1.0.0 — documented public release
 - [ ] v1.1.0 — Windows Task Scheduler
 - [ ] v1.2.0 — FastAPI endpoint

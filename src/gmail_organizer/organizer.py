@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -17,6 +18,8 @@ from .state import RunState, StateStore
 
 UNCATEGORIZED = "Uncategorized"
 MAX_RECORDED_ERRORS = 20
+
+logger = logging.getLogger(__name__)
 
 
 class Organizer:
@@ -88,11 +91,20 @@ class Organizer:
             )
             search_query = f"{search_query} after:{overlap_start}".strip()
 
+        logger.info(
+            "Starting run: mode=%s dry_run=%s limit=%d query=%r",
+            mode,
+            dry_run,
+            effective_limit,
+            search_query,
+        )
+
         summary = RunSummary(mode=mode, dry_run=dry_run)
         max_internal_date: int | None = None
 
         # Refresh once so reuse and already-labeled checks are reliable.
         self._labels.refresh()
+        logger.debug("Label cache refreshed")
 
         for message_id in self._gmail.iter_message_ids(
             search_query, effective_limit
@@ -100,6 +112,13 @@ class Organizer:
             try:
                 message = self._gmail.get_message(message_id)
                 summary.fetched += 1
+                logger.debug(
+                    "Fetched id=%s sender=%s subject=%r internal_date_ms=%s",
+                    message.id,
+                    message.sender_email,
+                    message.subject,
+                    message.internal_date_ms,
+                )
 
                 if message.internal_date_ms is not None:
                     max_internal_date = (
@@ -111,12 +130,19 @@ class Organizer:
                 result = self._classifier.classify(message)
                 if result is None:
                     summary.unmatched += 1
+                    logger.debug("Unmatched id=%s", message.id)
                     if not self._label_unmatched:
                         continue
                     category = UNCATEGORIZED
                 else:
                     summary.classified += 1
                     category = result.category
+                    logger.debug(
+                        "Matched id=%s rule=%s category=%s",
+                        message.id,
+                        result.matched_rule,
+                        category,
+                    )
 
                 summary.by_category[category] = (
                     summary.by_category.get(category, 0) + 1
@@ -125,20 +151,37 @@ class Organizer:
                 existing = self._labels.find(category)
                 if existing is not None and existing.id in message.label_ids:
                     summary.already_labeled += 1
+                    logger.debug(
+                        "Already labeled id=%s category=%s",
+                        message.id,
+                        category,
+                    )
                     continue
 
                 summary.eligible += 1
                 if dry_run:
+                    logger.debug(
+                        "Would label id=%s category=%s",
+                        message.id,
+                        category,
+                    )
                     continue
 
                 label, created = self._labels.ensure(category)
                 if created:
                     summary.labels_created += 1
+                    logger.info("Created label %s", label.name)
                 self._gmail.add_label(message.id, label.id)
                 summary.labels_applied += 1
+                logger.debug(
+                    "Applied label %s to id=%s",
+                    label.name,
+                    message.id,
+                )
             except Exception as exc:
                 # One bad message must not abort the run.
                 summary.failed += 1
+                logger.exception("Failed processing message %s", message_id)
                 if len(summary.errors) < MAX_RECORDED_ERRORS:
                     summary.errors.append(
                         f"{message_id}: {type(exc).__name__}"
@@ -164,7 +207,23 @@ class Organizer:
                         last_summary=summary,
                     )
                 )
+                logger.info("Advanced watermark to %d", watermark)
 
+        logger.debug(
+            "Run complete: mode=%s dry_run=%s fetched=%d classified=%d "
+            "unmatched=%d eligible=%d applied=%d created=%d failed=%d "
+            "state_updated=%s",
+            summary.mode,
+            summary.dry_run,
+            summary.fetched,
+            summary.classified,
+            summary.unmatched,
+            summary.eligible,
+            summary.labels_applied,
+            summary.labels_created,
+            summary.failed,
+            summary.state_updated,
+        )
         return summary
 
 
