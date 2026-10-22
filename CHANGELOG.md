@@ -5,6 +5,26 @@ All notable changes to this project are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-22
+
+### Added
+
+- Rotating file logging to `logs/organizer.log` (5 MB, three backups) plus
+  console logging, configured through `logging_setup.py`.
+- `--verbose` for `run` and `list`; DEBUG logs include sender and subject,
+  while INFO logs contain only counts, label names, and state changes.
+- Per-message failure logs with message ID and traceback but no subject.
+- Unexpected CLI failures are logged and exit with code 4.
+- Test coverage measurement with `pytest-cov` and an 85% CI gate.
+- Hardening tests for token refresh, state write failures, retry caps,
+  connection errors, error-list caps, label-creation failures, dry-run state
+  preservation, and argparse validation. **149 tests, 94% coverage.**
+
+### Changed
+
+- CLI commands now configure logging after loading settings.
+- `list --verbose` adds safe DEBUG diagnostics for each listed message.
+
 ## [0.3.0] - 2026-10-22
 
 ### Added
